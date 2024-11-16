@@ -11,7 +11,7 @@ const HTTPS_PORT = Number(process.env.HTTPS_PORT) || 58828;
 const main = async () => {
   const app = await serveHTTP(PORT);
   app.use(express.json()).use(router);
-  await serveHTTPS(app, HTTPS_PORT);
+  await serveHTTPS(app, PORT, HTTPS_PORT);
 };
 
 main();

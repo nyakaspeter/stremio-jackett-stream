@@ -11,15 +11,20 @@ enum HttpsMethod {
 }
 
 const HTTPS_METHOD = process.env.HTTPS_METHOD || HttpsMethod.None;
+const LOCALTUNNEL_SUBDOMAIN = process.env.LOCALTUNNEL_SUBDOMAIN;
 
-export const serveHTTPS = async (app: RequestListener, port: number) => {
+export const serveHTTPS = async (
+  app: RequestListener,
+  port: number,
+  httpsPort: number
+) => {
   if (HTTPS_METHOD === HttpsMethod.LocalIpMedic) {
     const json = (await axios.get("https://local-ip.medicmobile.org/keys"))
       .data;
     const cert = `${json.cert}\n${json.chain}`;
     const httpsServer = https.createServer({ key: json.privkey, cert }, app);
-    httpsServer.listen(port);
-    console.log(`HTTPS addon listening on port ${port}`);
+    httpsServer.listen(httpsPort);
+    console.log(`HTTPS addon listening on port ${httpsPort}`);
     return httpsServer;
   }
 
@@ -31,13 +36,16 @@ export const serveHTTPS = async (app: RequestListener, port: number) => {
       .data;
     const cert = `${serverPem}\n${chainPem}`;
     const httpsServer = https.createServer({ key, cert }, app);
-    httpsServer.listen(port);
-    console.log(`HTTPS addon listening on port ${port}`);
+    httpsServer.listen(httpsPort);
+    console.log(`HTTPS addon listening on port ${httpsPort}`);
     return httpsServer;
   }
 
   if (HTTPS_METHOD === HttpsMethod.Localtunnel) {
-    const tunnel = await localtunnel({ port: Number(process.env.PORT) });
+    const tunnel = await localtunnel({
+      port,
+      subdomain: LOCALTUNNEL_SUBDOMAIN,
+    });
     console.log(`Tunnel accessible at: ${tunnel.url}`);
     const tunnelPassword = await axios.get("https://loca.lt/mytunnelpassword");
     console.log(`Tunnel password: ${tunnelPassword.data}`);
