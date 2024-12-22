@@ -139,7 +139,7 @@ export const getOrAddTorrent = (uri: string) =>
 export const getFile = (torrent: Torrent, path: string) =>
   torrent.files.find((file) => file.path === path);
 
-export const getTorrentInfo = async (uri: string) => {
+export const getTorrentInfoFromWebtorrent = async (uri: string) => {
   const getInfo = (torrent: Torrent): TorrentInfo => ({
     name: torrent.name,
     infoHash: torrent.infoHash,

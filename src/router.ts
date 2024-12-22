@@ -4,7 +4,7 @@ import {
   getFile,
   getOrAddTorrent,
   getStats,
-  getTorrentInfo,
+  getTorrentInfoFromWebtorrent,
   streamClosed,
   streamOpened,
 } from "./torrent/webtorrent.js";
@@ -33,7 +33,7 @@ router.post("/torrents/:query", async (req, res) => {
 router.get("/torrent/:torrentUri", async (req, res) => {
   const { torrentUri } = req.params;
 
-  const torrent = await getTorrentInfo(torrentUri);
+  const torrent = await getTorrentInfoFromWebtorrent(torrentUri);
   if (!torrent) return res.status(500).send("Failed to get torrent");
 
   torrent.files.forEach((file) => {

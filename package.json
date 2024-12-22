@@ -17,7 +17,7 @@
     "@types/express": "^4.17.21",
     "@types/fs-extra": "^11.0.4",
     "@types/localtunnel": "^2.0.4",
-    "@types/node": "^20.11.20",
+    "@types/node": "^22.10.2",
     "@types/stremio-addon-sdk": "^1.6.11",
     "@types/tough-cookie": "^4.0.5",
     "@types/webtorrent": "~0.109.8",
@@ -26,6 +26,7 @@
   "dependencies": {
     "axios": "^1.6.5",
     "axios-cookiejar-support": "^4.0.7",
+    "bencode": "^4.0.0",
     "cheerio": "1.0.0-rc.12",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

@@ -6,12 +6,13 @@ import {
   TorrentSource,
   searchTorrents,
 } from "../torrent/search.js";
-import { getTorrentInfo } from "../torrent/webtorrent.js";
+import { getTorrentInfoFromWebtorrent } from "../torrent/webtorrent.js";
 import { getReadableSize, isSubtitleFile, isVideoFile } from "../utils/file.js";
 import { getTitles } from "../utils/imdb.js";
 import { guessLanguage } from "../utils/language.js";
 import { guessQuality } from "../utils/quality.js";
 import { isFileNameMatch, isTorrentNameMatch } from "../utils/shows.js";
+import { getTorrentInfoFromTorrentFile } from "../utils/torrent.js";
 
 interface HandlerArgs {
   type: string;
@@ -145,7 +146,13 @@ export const getStreamsFromTorrent = async (
   const uri = torrent.torrent || torrent.magnet;
   if (!uri) return [];
 
-  const torrentInfo = await getTorrentInfo(uri);
+  let torrentInfo;
+  if (uri == torrent.torrent) {
+    torrentInfo = await getTorrentInfoFromTorrentFile(uri);
+  } else {
+    torrentInfo = await getTorrentInfoFromWebtorrent(uri);
+  }
+
   if (!torrentInfo) return [];
 
   let videos = torrentInfo.files.filter((file) => isVideoFile(file.name));
