@@ -38,3 +38,13 @@ export const getTorrentInfoFromTorrentFile = async (
     })),
   };
 };
+
+export const getTorrentHash = async (
+  torrentBuffer: ArrayBufferLike
+): Promise<string | undefined> => {
+  const metadata = bencode.decode(torrentBuffer);
+  const infoHash = createHash("sha1")
+    .update(bencode.encode(metadata.info))
+    .digest("hex");
+  return infoHash;
+};

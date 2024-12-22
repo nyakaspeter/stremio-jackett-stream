@@ -4,6 +4,7 @@ import os from "os";
 import path from "path";
 import WebTorrent, { Torrent } from "webtorrent";
 import { getReadableDuration } from "../utils/file.js";
+import { getTorrentHash } from "../utils/torrent.js";
 
 interface FileInfo {
   name: string;
@@ -39,9 +40,27 @@ interface ActiveTorrentInfo extends TorrentInfo {
 const DOWNLOAD_DIR =
   process.env.DOWNLOAD_DIR || path.join(os.tmpdir(), "torrent-stream-server");
 
+// Directory to store torrent files (default DOWNLOAD_DIR/torrents)
+const TORRENT_FILE_DIR =
+  process.env.TORRENT_FILE_DIR || path.join(DOWNLOAD_DIR, "torrents");
+
+// Directory to store torrent files that didn't complete their seed period (default DOWNLOAD_DIR/seed)
+const SEED_DIR = process.env.SEED_DIR || path.join(DOWNLOAD_DIR, "seed");
+
+// Enables automatic seeding of torrents that were left in the SEED_DIR (default false)
+// A torrent file stay in the SEED_DIR if the SEED_TIME has not passed, I recommend keeping this enabled
+const AUTO_SEED = process.env.AUTO_SEED
+  ? process.env.AUTO_SEED === "true"
+  : false;
+
 // Keep downloaded files after all streams are closed (default false)
 const KEEP_DOWNLOADED_FILES = process.env.KEEP_DOWNLOADED_FILES
   ? process.env.KEEP_DOWNLOADED_FILES === "true"
+  : false;
+
+// Keep torrent files (default false)
+const KEEP_TORRENT_FILES = process.env.KEEP_TORRENT_FILES
+  ? process.env.KEEP_TORRENT_FILES === "true"
   : false;
 
 if (!KEEP_DOWNLOADED_FILES) fs.emptyDirSync(DOWNLOAD_DIR);
@@ -201,14 +220,82 @@ export const streamClosed = (hash: string, fileName: string) => {
   let timeout = timeouts.get(hash);
   if (timeout) return;
 
-  timeout = setTimeout(async () => {
-    const torrent = await streamClient.get(hash);
-    // @ts-ignore
-    torrent?.destroy(undefined, () => {
-      console.log(`Removed torrent: ${torrent.name}`);
-      timeouts.delete(hash);
-    });
-  }, SEED_TIME);
+  timeout = setTimeout(() => handleTorrentTimeout(hash), SEED_TIME);
 
   timeouts.set(hash, timeout);
 };
+
+const handleTorrentTimeout = async (hash: string) => {
+  const torrent = await streamClient.get(hash);
+
+  // @ts-ignore
+  torrent?.destroy(undefined, async () => {
+    console.log(`Removed torrent: ${torrent.name}`);
+
+    timeouts.delete(torrent.infoHash);
+    const seedPath = path.join(SEED_DIR, `${torrent.name}.torrent`);
+
+    try {
+      await fs.remove(seedPath);
+      console.log(`Deleted seed file: ${torrent.name}.torrent`);
+    } catch (error) {
+      console.error(
+        `Failed to delete seed file: ${torrent.name}, error: ${error.message}`
+      );
+    }
+  });
+};
+
+export const saveTorrentFile = async (uri: string, filePath: string) => {
+  const torrentBuffer = await fetch(uri).then((res) => res.arrayBuffer());
+  const rootFolder = path.normalize(filePath).split(path.sep)[0];
+  const torrentFilename = `${rootFolder}.torrent`;
+
+  const torrentPath = path.join(TORRENT_FILE_DIR, torrentFilename);
+  const seedPath = path.join(SEED_DIR, torrentFilename);
+
+  if (!fs.existsSync(seedPath)) {
+    await fs.outputFile(seedPath, Buffer.from(torrentBuffer));
+  }
+
+  if (KEEP_TORRENT_FILES && !fs.existsSync(torrentPath)) {
+    await fs.copy(seedPath, torrentPath);
+  }
+};
+
+export const seedDirectory = async () => {
+  if (!fs.existsSync(SEED_DIR)) {
+    console.log(
+      "No files too auto seed, or seed directory does not exist at path:",
+      SEED_DIR
+    );
+    return;
+  }
+
+  const files = await fs.readdir(SEED_DIR);
+
+  for (const file of files) {
+    const filePath = path.join(SEED_DIR, file);
+    const fileBuffer = await fs.readFile(filePath);
+    const hash = await getTorrentHash(fileBuffer.buffer);
+
+    let timeout = timeouts.get(hash);
+    if (timeout) return;
+
+    if (path.extname(filePath) === ".torrent") {
+      streamClient.add(filePath, { path: DOWNLOAD_DIR }, (_) => {
+        console.log(`Seeding torrent: ${file}`);
+        timeout = setTimeout(() => handleTorrentTimeout(hash), SEED_TIME);
+      });
+    }
+
+    timeouts.set(hash, timeout);
+  }
+};
+
+//Starts the seeding process if AUTO_SEED is true
+if (AUTO_SEED) {
+  seedDirectory().catch((error) => {
+    console.error(`Failed to auto seed torrents: ${error.message}`);
+  });
+}
