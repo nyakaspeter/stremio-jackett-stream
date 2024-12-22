@@ -246,21 +246,27 @@ const handleTorrentTimeout = async (hash: string) => {
   });
 };
 
-export const saveTorrentFile = async (uri: string, filePath: string) => {
-  const torrentBuffer = await fetch(uri).then((res) => res.arrayBuffer());
+export const saveOrGetTorrentFile = async (uri: string, filePath: string) => {
   const rootFolder = path.normalize(filePath).split(path.sep)[0];
   const torrentFilename = `${rootFolder}.torrent`;
-
-  const torrentPath = path.join(TORRENT_FILE_DIR, torrentFilename);
   const seedPath = path.join(SEED_DIR, torrentFilename);
+
+  if (fs.existsSync(seedPath)) {
+    return seedPath;
+  }
+
+  const torrentBuffer = await fetch(uri).then((res) => res.arrayBuffer());
 
   if (!fs.existsSync(seedPath)) {
     await fs.outputFile(seedPath, Buffer.from(torrentBuffer));
   }
 
-  if (KEEP_TORRENT_FILES && !fs.existsSync(torrentPath)) {
-    await fs.copy(seedPath, torrentPath);
+  if (KEEP_TORRENT_FILES) {
+    const torrentPath = path.join(TORRENT_FILE_DIR, torrentFilename);
+    if(fs.existsSync(torrentPath)) await fs.copy(seedPath, torrentPath);
   }
+
+  return seedPath;
 };
 
 export const seedDirectory = async () => {

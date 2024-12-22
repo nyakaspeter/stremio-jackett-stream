@@ -7,7 +7,7 @@ import {
   getTorrentInfoFromWebtorrent,
   streamClosed,
   streamOpened,
-  saveTorrentFile,
+  saveOrGetTorrentFile,
 } from "./torrent/webtorrent.js";
 import { getStreamingMimeType } from "./utils/file.js";
 
@@ -51,13 +51,13 @@ router.get("/torrent/:torrentUri", async (req, res) => {
 
 router.get("/stream/:torrentUri/:filePath", async (req, res) => {
   const { torrentUri, filePath } = req.params;
-  
-  const torrent = await getOrAddTorrent(torrentUri);
-  if (!torrent) return res.status(500).send("Failed to add torrent");
 
-  if (!torrentUri.startsWith("magnet:")) {
-    saveTorrentFile(torrentUri, filePath);
-  }
+  const uri = torrentUri.startsWith("magnet")
+    ? torrentUri
+    : await saveOrGetTorrentFile(torrentUri, filePath);
+
+  const torrent = await getOrAddTorrent(uri);
+  if (!torrent) return res.status(500).send("Failed to add torrent");
 
   const file = getFile(torrent, filePath);
   if (!file) return res.status(404).send("File not found");
