@@ -4,9 +4,10 @@ import {
   getFile,
   getOrAddTorrent,
   getStats,
-  getTorrentInfo,
+  getTorrentInfoFromWebtorrent,
   streamClosed,
   streamOpened,
+  saveOrGetTorrentFile,
 } from "./torrent/webtorrent.js";
 import { getStreamingMimeType } from "./utils/file.js";
 
@@ -33,7 +34,7 @@ router.post("/torrents/:query", async (req, res) => {
 router.get("/torrent/:torrentUri", async (req, res) => {
   const { torrentUri } = req.params;
 
-  const torrent = await getTorrentInfo(torrentUri);
+  const torrent = await getTorrentInfoFromWebtorrent(torrentUri);
   if (!torrent) return res.status(500).send("Failed to get torrent");
 
   torrent.files.forEach((file) => {
@@ -51,7 +52,11 @@ router.get("/torrent/:torrentUri", async (req, res) => {
 router.get("/stream/:torrentUri/:filePath", async (req, res) => {
   const { torrentUri, filePath } = req.params;
 
-  const torrent = await getOrAddTorrent(torrentUri);
+  const uri = torrentUri.startsWith("magnet")
+    ? torrentUri
+    : await saveOrGetTorrentFile(torrentUri, filePath);
+
+  const torrent = await getOrAddTorrent(uri);
   if (!torrent) return res.status(500).send("Failed to add torrent");
 
   const file = getFile(torrent, filePath);
