@@ -13,9 +13,11 @@ export const guessSeasonEpisode = (name: string) => {
     const firstSeason = Number(seasonMatch[0].groups?.season) || 0;
     const lastSeason =
       Number(seasonMatch[seasonMatch.length - 1].groups?.season) || 0;
+    const episode = Number(episodeMatch?.groups?.episode) || undefined;
     const seasons = [];
     for (let i = firstSeason; i <= lastSeason; i++) seasons.push(i);
-    return { seasons };
+
+    return { seasons, episode };
   } else if (seasonMatch[0] || episodeMatch) {
     const season = Number(seasonMatch[0]?.groups?.season) || undefined;
     const episode = Number(episodeMatch?.groups?.episode) || undefined;
@@ -50,7 +52,7 @@ export const isFileNameMatch = (
   episode: number
 ) => {
   const guess = guessSeasonEpisode(name);
-  if (guess.season === season && guess.episode === episode) return true;
+  if ((guess.season === season || guess.seasons?.includes(season)) && guess.episode === episode) return true;
   if (season === 0) return true;
   return false;
 };
